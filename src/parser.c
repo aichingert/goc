@@ -44,11 +44,9 @@ bool is_multiline_comment_start(size_t len, size_t pos, char *buf) {
 
 size_t parse_identifier(size_t len, size_t pos, char *buf) {
     size_t cur = pos;
-
     while (cur < len && is_valid_identifier_char(buf[cur])) {
         cur += 1;
     }
-
     return cur - pos;
 }
 
@@ -72,11 +70,9 @@ size_t skip_multiline_comment(size_t len, size_t pos, char *buf) {
 
 size_t skip_till_next(size_t len, size_t pos, char *buf) {
     size_t cur = pos;
-
     while (cur < len && buf[cur] != '#' && !is_identifier_start(buf[cur])) {
         cur += 1;
     }
-
     return cur - pos;
 }
 
