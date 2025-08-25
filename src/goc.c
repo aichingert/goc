@@ -19,14 +19,12 @@ int main(int argc, char **argv) {
     scratch.beg = alloc(&perm, char, ssize); 
     scratch.end = scratch.beg + ssize; 
 
-    ArrayExpr exprs = {0};
+    ArrayDefine defs = {0};
 
     for (int i = 1; i < argc; i++) {
-        char *beg = scratch.beg;
-        parse_c_file(perm, scratch, argv[i], &exprs);
-        scratch.beg = beg;
+        parse_c_file(&perm, scratch, argv[i], &defs);
     }
 
-    printf("%lu\n", exprs.len);
+    printf("%lu\n", defs.len);
     return 0;
 }

@@ -3,57 +3,48 @@
 
 #include "arena.h"
 
-typedef enum Type {
-    DEFINE,
-    STRUCT,
-    ENUM,
-    FUNC,
-    GLOBAL_VAR,
-} Type;
+typedef struct String {
+    char    *val;
+    size_t  len;
+} String;
+
+typedef struct TypedDefine {
+    String ident;
+    String value;
+} TypedDefine;
 
 typedef struct TypedVar {
-    char        *type;
-    char        *ident;
+    String type;
+    String ident;
 } TypedVar;
 
 typedef struct TypedStruct {
-    char        *ident;
+    String ident;
+    // TODO: array
     TypedVar    *vars;
     long long   len;
 } TypedStruct;
 
 typedef struct TypedEnum {
-    char        *ident;
-    char        **types;
+    String ident;
+    String *types;
     long long   len;
 } TypedEnum;
 
 typedef struct TypedFunc {
-    char        *ret_type;
-    char        *ident;
+    String ret_type;
+    String ident;
 
     TypedVar    *args;
     long long   len;
 } TypedFunc;
 
-typedef struct Expr {
-    Type type;
-
-    union {
-        TypedVar        *var;
-        TypedFunc       *tf;
-        TypedStruct     *ts;
-        TypedEnum       *te;
-    };
-} Expr;
-
-typedef struct ArrayExpr {
-    Expr     *data;
+typedef struct ArrayDefine {
+    TypedDefine *data;
     ptrdiff_t len;
     ptrdiff_t cap;
-} ArrayExpr;
+} ArrayDefine;
 
-
-void parse_c_file(Arena arena, Arena scratch, char *path, ArrayExpr *exprs);
+void parse_c_file(Arena *arena, Arena scratch, char *path, ArrayDefine *defs);
 
 #endif /* PARSER_H */
