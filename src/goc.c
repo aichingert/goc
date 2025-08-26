@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
     scratch.beg = alloc(&perm, char, ssize); 
     scratch.end = scratch.beg + ssize; 
 
-    ArrayDefine defs = {0};
+    ArrayCopy defs = {0};
 
     for (int i = 1; i < argc; i++) {
         parse_c_file(&perm, scratch, argv[i], &defs);

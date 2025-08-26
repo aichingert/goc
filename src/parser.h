@@ -8,43 +8,25 @@ typedef struct String {
     size_t  len;
 } String;
 
-typedef struct TypedDefine {
+typedef struct TypedCopy {
     String ident;
     String value;
-} TypedDefine;
-
-typedef struct TypedVar {
-    String type;
-    String ident;
-} TypedVar;
-
-typedef struct TypedStruct {
-    String ident;
-    // TODO: array
-    TypedVar    *vars;
-    long long   len;
-} TypedStruct;
-
-typedef struct TypedEnum {
-    String ident;
-    String *types;
-    long long   len;
-} TypedEnum;
+} TypedCopy;
 
 typedef struct TypedFunc {
     String ret_type;
     String ident;
 
-    TypedVar    *args;
+    TypedCopy  *copies;
     long long   len;
 } TypedFunc;
 
-typedef struct ArrayDefine {
-    TypedDefine *data;
+typedef struct ArrayCopy {
+    TypedCopy *data;
     ptrdiff_t len;
     ptrdiff_t cap;
-} ArrayDefine;
+} ArrayCopy;
 
-void parse_c_file(Arena *arena, Arena scratch, char *path, ArrayDefine *defs);
+void parse_c_file(Arena *arena, Arena scratch, char *path, ArrayCopy *copies);
 
 #endif /* PARSER_H */
