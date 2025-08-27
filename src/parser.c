@@ -17,6 +17,23 @@ static const char TYPEDEF[] = "typedef";
 static const char STRUCT[]  = "struct";
 static const char ENUM[]    = "enum";
 
+TypedCopy alloc_typed_copy(Arena *arena, size_t ident_len, size_t value_len) {
+    String ident = { 
+        .val = alloc(arena, char, ident_len), 
+        .len = ident_len,
+    };
+    String value = {
+        .val = alloc(arena, char, value_len),
+        .len = value_len,
+    };
+
+    TypedCopy allocated = {
+        .ident = ident,
+        .value = value,
+    };
+    return allocated;
+}
+
 char* read_file(Arena arena, char *path, size_t *len) {
     FILE *f = fopen(path, "r");
     if (f == NULL) assert(false && "error: file not found");
@@ -50,6 +67,27 @@ bool is_line_comment_start(size_t len, size_t pos, char *buf) {
 
 bool is_multiline_comment_start(size_t len, size_t pos, char *buf) {
     return pos + 1 < len && buf[pos] == '/' && buf[pos + 1] == '*';
+}
+
+bool is_function(size_t len, size_t pos, char *buf) {
+    size_t iter = pos;
+
+    while (iter < len && (buf[iter] != ';' || buf[iter] != '{')) {
+        iter += 1;
+    }
+    if (iter >= len || buf[iter] == ';') return false;
+
+    uint16_t braces = 1;
+    iter += 1;
+
+    while (iter < len && braces > 0) {
+        if      (buf[iter] == '{') braces += 1;
+        else if (buf[iter] == '}') braces -= 1;
+
+        iter += 1;
+    }
+
+    return !(iter >= len || buf[iter] == ';');
 }
 
 size_t skip_whitespace_and_newline(size_t len, size_t pos, char *buf) {
@@ -122,9 +160,10 @@ size_t parse_include_define_or_pragma(Arena *arena, ArrayCopy *defs, size_t len,
     size_t end = parse_identifier(len, pos + 1, buf); 
 
     if          (is_equal(buf, pos, len, INCLUDE, strlen(INCLUDE))) {
-        // TODO: add line number and path
+        // TODO: not ignoring it
         printf("WARNING: `#include` is being ignored\n");
-        pos += skip_line(len, pos + end, buf);
+        pos += end;
+        pos += skip_line(len, pos, buf);
     } else if   (is_equal(buf, pos, len, DEFINE, strlen(DEFINE))) {
         pos += end + 1;
 
@@ -139,10 +178,7 @@ size_t parse_include_define_or_pragma(Arena *arena, ArrayCopy *defs, size_t len,
         end = parse_identifier(len, ident, buf);
         define_end = parse_define(len, pos + end, buf);
 
-        TypedCopy def = {
-            .ident = (String){ .val = alloc(arena, char, end),          .len = end },
-            .value = (String){ .val = alloc(arena, char, define_end),   .len = define_end },
-        };
+        TypedCopy def = alloc_typed_copy(arena, end, define_end);
         for (size_t i = 0; i < end; i++)        def.ident.val[i] = buf[pos + i];
         for (size_t i = 0; i < define_end; i++) def.value.val[i] = buf[pos + end + i];
         *push(defs, arena) = def;
@@ -179,10 +215,7 @@ TypedCopy parse_struct(Arena *arena, size_t len, size_t *pos, char *buf) {
     // TODO: error handling
     if (cur >= len) return (TypedCopy){0};
 
-    TypedCopy plex = {
-        .ident = (String){ .val = alloc(arena, char, end),              .len = end },
-        .value = (String){ .val = alloc(arena, char, cur - skip),  .len = cur - skip },
-    };
+    TypedCopy plex = alloc_typed_copy(arena, end, cur - skip);
     for (size_t i = 0; i < end; i++)    plex.ident.val[i]           = buf[*pos + i];
     for (size_t i = skip; i < cur; i++) plex.value.val[i - skip]    = buf[i];
 
@@ -201,10 +234,7 @@ TypedCopy parse_enum(Arena *arena, size_t len, size_t *pos, char *buf) {
     while (cur < len && buf[cur] != '}') cur += 1;
     cur += 1;
 
-    TypedCopy data = {
-        .ident = (String){ .val = alloc(arena, char, end),           .len = end },
-        .value = (String){ .val = alloc(arena, char, cur - skip),    .len = cur - skip },
-    };
+    TypedCopy data = alloc_typed_copy(arena, end, cur - skip);
     for (size_t i = 0; i < end; i++)    data.ident.val[i] = buf[*pos + i];
     for (size_t i = skip; i < cur; i++) data.value.val[i - skip] = buf[i];
 
@@ -215,29 +245,49 @@ TypedCopy parse_enum(Arena *arena, size_t len, size_t *pos, char *buf) {
 
 size_t parse_identifier_states(Arena *arena, size_t len, size_t pos, char *buf) {
     size_t cur = pos;
+    bool is_typedef = false;
 
-    if          (is_equal(buf, cur, len, TYPEDEF, strlen(TYPEDEF))) {
+    if (is_equal(buf, cur, len, TYPEDEF, strlen(TYPEDEF))) {
         cur += strlen(TYPEDEF);
         cur += skip_till_next(len, cur, buf);
+        is_typedef = true;
+    }
+        
+    if          (is_equal(buf, cur, len, STRUCT, strlen(STRUCT))) {
+        cur += strlen(STRUCT);
+        cur += skip_till_next(len, cur, buf);
 
-        if          (is_equal(buf, cur, len, STRUCT, strlen(STRUCT))) {
-            cur += strlen(STRUCT);
-            cur += skip_till_next(len, cur, buf);
+        TypedCopy plex = parse_struct(arena, len, &cur, buf);
+    } else if   (is_equal(buf, cur, len, ENUM, strlen(ENUM))) {
+        cur += strlen(ENUM);
+        cur += skip_till_next(len, cur, buf);
 
-            TypedCopy plex = parse_struct(arena, len, &cur, buf);
+        TypedCopy data = parse_enum(arena, len, &cur, buf);
+    } else if   (is_typedef) {
+        size_t iden = cur + parse_identifier(len, cur, buf);
+        size_t skip = iden + skip_till_next(len, iden, buf);
+        size_t iter = skip;
+        while (iter < len && buf[iter] != ';') iter += 1;
 
-        } else if   (is_equal(buf, cur, len, ENUM, strlen(ENUM))) {
-            cur += strlen(ENUM);
-            cur += skip_till_next(len, cur, buf);
-
-            TypedCopy data = parse_enum(arena, len, &cur, buf);
-        } else {
-            size_t end = parse_identifier(len, cur, buf);
-            for (size_t i = 0; i < end; i++) {
-                printf("%c", buf[cur + i]);
-            }
-            printf("\n");
+        TypedCopy type = alloc_typed_copy(arena, iden - cur, iter - skip);
+        for (size_t i = 0; i < iden - cur; i++)   {
+            type.ident.val[i] = buf[cur + i];
         }
+        for (size_t i = skip; i < iter; i++) {
+            type.value.val[i - skip] = buf[i];
+        }
+
+        cur = iter + 1;
+    } else {
+
+        for (int i = 0; i < 10; i++) {
+            printf("%c", buf[cur + i]);
+        }
+        // TODO: think about discerning between functions and global structs or scopes
+        bool res = is_function(len, cur, buf);
+        printf("%b\n", res);
+        cur += 100;
+
     }
 
     return cur - pos;
