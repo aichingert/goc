@@ -6,6 +6,7 @@
 #include <sys/mman.h>
 
 #include "parser.h"
+#include "tokenize.h"
 
 #define COUNT(arr) (sizeof(arr) / sizeof(arr[0]))
 
@@ -297,6 +298,8 @@ void parse_c_file(Arena *arena, Arena scratch, char *path, ArrayCopy *copies) {
     size_t len    = 0;
     size_t pos    = 0;
     char *content = read_file(scratch, path, &len);
+
+    ArrayToken tokens = tokenize(arena, content, len);
 
     while (pos < len) {
         pos += skip_whitespace_and_newline(len, pos, content);
