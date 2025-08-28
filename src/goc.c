@@ -9,7 +9,8 @@
 #include "parser.h"
 
 int main(int argc, char **argv) {
-    ptrdiff_t size = 1 << 24;
+    ptrdiff_t size = 1 << 30;
+    printf("%d\n", size);
     ptrdiff_t ssize = 2 * 1024 * 1024;
 
     Arena perm, scratch = {0};

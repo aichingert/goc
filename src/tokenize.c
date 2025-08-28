@@ -1,3 +1,4 @@
+#include "assert.h"
 #include "string.h"
 
 #include "tokenize.h"
@@ -8,6 +9,29 @@ bool is_ident_start(char character) {
 
 bool is_ident(char character) {
     return is_ident_start(character) || character >= '0' && character <= '9';
+}
+
+bool is_line_comment(uint32_t pos, uint32_t len, const char *source) {
+    return pos + 1 < len && source[pos] == '/' && source[pos + 1] == '/';
+}
+
+bool is_multiline_comment(uint32_t pos, uint32_t len, const char *source) {
+    return pos + 1 < len && source[pos] == '/' && source[pos + 1] == '*';
+}
+
+void consume_line_comment(uint32_t *pos, uint32_t len, const char *source) {
+    while (*pos < len && source[*pos] != '\n') {
+        *pos += 1;
+    }
+}
+
+void consume_multiline_comment(uint32_t *pos, uint32_t *line, uint32_t len, const char *source) {
+    while (*pos < len) {
+        *pos += 1;
+        if (source[*pos] == '\n') *line += 1;
+        else if (source[*pos - 1] == '*' && source[*pos] == '/') break;
+    }
+    *pos += 1;
 }
 
 Token consume_identifier(uint32_t *pos, uint32_t len, const char *source) {
@@ -22,8 +46,70 @@ Token consume_identifier(uint32_t *pos, uint32_t len, const char *source) {
 
     uint32_t diff = *pos - tok.beg;
 
-    if (diff == 6 && strcmp(source + *pos, "struct")) {
+    if          (diff == 6 && strncmp(source + tok.beg, "struct", diff) == 0) {
         tok.type = T_STRUCT;
+    } else if   (diff == 4 && strncmp(source + tok.beg, "enum", diff) == 0) {
+        tok.type = T_ENUM;
+    } else if   (diff == 7 && strncmp(source + tok.beg, "typedef", diff) == 0) {
+        tok.type = T_TYPEDEF;
+    }
+
+    return tok;
+}
+
+Token consume_compiler_instruction(uint32_t *pos, uint32_t len, const char *source) {
+    Token tok = {
+        .beg = *pos,
+        .type = C_INCLUDE,
+    };
+    *pos += 1;
+
+    while (*pos < len && is_ident(source[*pos])) {
+        *pos += 1;
+    }
+
+    uint32_t diff = *pos - tok.beg;
+
+    if          (diff == 8 && strncmp(source + tok.beg, "#include", diff) == 0) {
+        tok.type = C_INCLUDE;
+    } else if   (diff == 7 && strncmp(source + tok.beg, "#define", diff) == 0) {
+        tok.type = C_DEFINE;
+    } else if   (diff == 7 && strncmp(source + tok.beg, "#pragma", diff) == 0) {
+        tok.type = C_PRAGMA;
+    } else {
+        assert(false && "ERROR: either unknown compiler intrinsic or invalid c file -> `path`\n");
+    }
+
+    return tok;
+}
+
+Token consume_tt(uint32_t *pos, TokenType type) {
+    Token tok = {
+        .beg = *pos,
+        .type = type,
+    };
+    *pos += 1;
+
+    return tok;
+}
+
+Token consume_o(uint32_t *pos, uint32_t len, const char *source, TokenType type, char nxt, TokenType other) {
+    if (*pos + 1 >= len) {
+        // TODO: include file path
+        assert(false && "ERROR: in c file -> `path`\n");
+        return (Token){0};
+    }
+
+    Token tok = {
+        .beg = *pos,
+        .type = type,
+    };
+
+    if (source[*pos + 1] == nxt) {
+        tok.type = other;
+        *pos += 2;
+    } else {
+        *pos += 1;
     }
 
     return tok;
@@ -38,9 +124,29 @@ ArrayToken tokenize(Arena *arena, const char *source, uint32_t len) {
     while (pos < len) {
         if          (is_ident_start(source[pos])) {
             *push(&tokens, arena) = consume_identifier(&pos, len, source);
-        } else if (false) {}
-
+        } else if   (source[pos] == '#') {
+            *push(&tokens, arena) = consume_compiler_instruction(&pos, len, source);
+        } else if   (is_line_comment(pos, len, source)) {
+            consume_line_comment(&pos, len, source);
+        } else if   (is_multiline_comment(pos, len, source)) {
+            consume_multiline_comment(&pos, &line, len, source);
+        } else if   (source[pos] == '(') {
+            *push(&tokens, arena) = consume_tt(&pos, TT_L_PAREN);
+        } else if   (source[pos] == ')') {
+            *push(&tokens, arena) = consume_tt(&pos, TT_R_PAREN);
+        } else if   (source[pos] == '{') {
+            *push(&tokens, arena) = consume_tt(&pos, TT_L_BRACE);
+        } else if   (source[pos] == '}') {
+            *push(&tokens, arena) = consume_tt(&pos, TT_R_BRACE);
+        } else if   (source[pos] == '[') {
+            *push(&tokens, arena) = consume_tt(&pos, TT_L_BRACKET);
+        } else if   (source[pos] == ']') {
+            *push(&tokens, arena) = consume_tt(&pos, TT_R_BRACKET);
+        } else if   (source[pos] == '=') {
+            *push(&tokens, arena) = consume_o(&pos, len, source, O_EQ, '=', R_IGNORE);
+        } else { pos += 1; }
     }
 
+    *push(&tokens, arena) = (Token){.beg = len, .type = R_EOF};
     return tokens;
 }

@@ -7,14 +7,26 @@
 #include "arena.h"
 
 typedef enum TokenType {
-    T_ENUM,
-    T_STRUCT,
-    T_TYPEDEF,
-    T_IDENT,
-    T_MACRO,
-    T_PRAGMA,
-    T_DEFINE,
-    T_INCLUDE,
+    T_ENUM      = 0,
+    T_STRUCT    = 1,
+    T_TYPEDEF   = 2,
+    T_IDENT     = 3,
+    C_PRAGMA    = 4,
+    C_DEFINE    = 5,
+    C_INCLUDE   = 6,
+
+    O_EQ        = 8,
+    TT_L_BRACE  = 9,
+    TT_R_BRACE  = 10,
+    TT_L_PAREN  = 11,
+    TT_R_PAREN  = 12,
+    TT_L_BRACKET= 13,
+    TT_R_BRACKET= 14,
+    TT_COMMA    = 15,
+    TT_SEMICOLON= 16,
+
+    R_EOF       = 17,
+    R_IGNORE    = 18,
 } TokenType;
 
 typedef struct Token {

@@ -301,6 +301,10 @@ void parse_c_file(Arena *arena, Arena scratch, char *path, ArrayCopy *copies) {
 
     ArrayToken tokens = tokenize(arena, content, len);
 
+    for (int i = 0; i < tokens.len; i++) {
+        printf("%d\n", tokens.data[i].type);
+    }
+
     while (pos < len) {
         pos += skip_whitespace_and_newline(len, pos, content);
 
