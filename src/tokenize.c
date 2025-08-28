@@ -1,3 +1,4 @@
+#include "stdio.h"
 #include "assert.h"
 #include "string.h"
 
@@ -34,6 +35,29 @@ void consume_multiline_comment(uint32_t *pos, uint32_t *line, uint32_t len, cons
     *pos += 1;
 }
 
+void consume_string_literal(uint32_t *pos, uint32_t *line, uint32_t len, const char *source) {
+    *pos += 1;
+
+    while (*pos < len && source[*pos] != '"') {
+        if      (source[*pos] == '\\') *pos += 1;
+        else if (source[*pos] == '\n') *line += 1;
+
+        *pos += 1;
+    }
+
+    *pos += 1;
+}
+
+void consume_char_literal(uint32_t *pos, uint32_t len, const char *source) {
+    assert(source[*pos] == '\'' && "ERROR: character literal does not start with -> `'`!");
+
+    *pos += 1;
+    if (*pos < len && source[*pos] == '\\') *pos += 1;
+    *pos += 2;
+
+    assert(*pos - 1 < len && source[*pos - 1] == '\'' && "ERROR: character literal does not end with -> `'`!");
+}
+
 Token consume_identifier(uint32_t *pos, uint32_t len, const char *source) {
     Token tok = {
         .beg  = *pos,
@@ -57,7 +81,13 @@ Token consume_identifier(uint32_t *pos, uint32_t len, const char *source) {
     return tok;
 }
 
-Token consume_compiler_instruction(uint32_t *pos, uint32_t len, const char *source) {
+Token consume_compiler_instruction(
+        uint32_t *pos, 
+        uint32_t line,
+        uint32_t len, 
+        const char *source, 
+        const char const *path
+) {
     Token tok = {
         .beg = *pos,
         .type = C_INCLUDE,
@@ -77,7 +107,8 @@ Token consume_compiler_instruction(uint32_t *pos, uint32_t len, const char *sour
     } else if   (diff == 7 && strncmp(source + tok.beg, "#pragma", diff) == 0) {
         tok.type = C_PRAGMA;
     } else {
-        assert(false && "ERROR: either unknown compiler intrinsic or invalid c file -> `path`\n");
+        printf("ERROR: either unknown compiler intrinsic or invalid c file -> `%s`, line=%d\n", path, line);
+        assert(false);
     }
 
     return tok;
@@ -94,18 +125,12 @@ Token consume_tt(uint32_t *pos, TokenType type) {
 }
 
 Token consume_o(uint32_t *pos, uint32_t len, const char *source, TokenType type, char nxt, TokenType other) {
-    if (*pos + 1 >= len) {
-        // TODO: include file path
-        assert(false && "ERROR: in c file -> `path`\n");
-        return (Token){0};
-    }
-
     Token tok = {
         .beg = *pos,
         .type = type,
     };
 
-    if (source[*pos + 1] == nxt) {
+    if (*pos + 1 < len && source[*pos + 1] == nxt) {
         tok.type = other;
         *pos += 2;
     } else {
@@ -115,21 +140,30 @@ Token consume_o(uint32_t *pos, uint32_t len, const char *source, TokenType type,
     return tok;
 }
 
-ArrayToken tokenize(Arena *arena, const char *source, uint32_t len) {
+ArrayToken tokenize(
+        Arena *arena, 
+        const char const *path, 
+        const char *source, 
+        uint32_t len
+) {
     ArrayToken tokens = {0};
 
     uint32_t pos = 0;
-    uint32_t line = 0;
+    uint32_t line = 1;
 
     while (pos < len) {
         if          (is_ident_start(source[pos])) {
             *push(&tokens, arena) = consume_identifier(&pos, len, source);
         } else if   (source[pos] == '#') {
-            *push(&tokens, arena) = consume_compiler_instruction(&pos, len, source);
+            *push(&tokens, arena) = consume_compiler_instruction(&pos, line, len, source, path);
         } else if   (is_line_comment(pos, len, source)) {
             consume_line_comment(&pos, len, source);
         } else if   (is_multiline_comment(pos, len, source)) {
             consume_multiline_comment(&pos, &line, len, source);
+        } else if   (source[pos] == '\'') {
+            consume_char_literal(&pos, len, source);
+        } else if   (source[pos] == '"') {
+            consume_string_literal(&pos, &line, len, source);
         } else if   (source[pos] == '(') {
             *push(&tokens, arena) = consume_tt(&pos, TT_L_PAREN);
         } else if   (source[pos] == ')') {
@@ -144,6 +178,9 @@ ArrayToken tokenize(Arena *arena, const char *source, uint32_t len) {
             *push(&tokens, arena) = consume_tt(&pos, TT_R_BRACKET);
         } else if   (source[pos] == '=') {
             *push(&tokens, arena) = consume_o(&pos, len, source, O_EQ, '=', R_IGNORE);
+        } else if   (source[pos] == '\n') {
+            pos += 1;
+            line += 1;
         } else { pos += 1; }
     }
 

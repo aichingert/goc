@@ -299,7 +299,7 @@ void parse_c_file(Arena *arena, Arena scratch, char *path, ArrayCopy *copies) {
     size_t pos    = 0;
     char *content = read_file(scratch, path, &len);
 
-    ArrayToken tokens = tokenize(arena, content, len);
+    ArrayToken tokens = tokenize(arena, path, content, len);
 
     for (int i = 0; i < tokens.len; i++) {
         printf("%d\n", tokens.data[i].type);
