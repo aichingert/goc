@@ -31,12 +31,7 @@ char* read_file(Arena arena, char *path, uint32_t *len) {
     return buf;
 }
 
-LineRange consume_define_pragma_and_include(
-        uint32_t *pos, 
-        Arena *arena, 
-        ArrayToken *toks, 
-        const char *source
-) {
+LineRange consume_define_pragma_and_include(uint32_t *pos, ArrayToken *toks, const char *source) {
     uint32_t iden = *pos;
     uint32_t line = toks->data[iden].line;
 
@@ -54,7 +49,7 @@ LineRange consume_define_pragma_and_include(
     };
 }
 
-CharRange consume_struct_or_enum(uint32_t *pos, Arena *arena, ArrayToken *toks, const char *source) {
+CharRange consume_struct_or_enum(uint32_t *pos, ArrayToken *toks, const char *source) {
     *pos += 1;
     assert(toks->data[*pos].type == T_IDENT && "Error: expected identifier after struct or enum");
 
@@ -82,7 +77,7 @@ CharRange consume_struct_or_enum(uint32_t *pos, Arena *arena, ArrayToken *toks, 
     };
 }
 
-CharRange consume_typedef(uint32_t *pos, Arena *arena, ArrayToken *toks, const char *source) {
+CharRange consume_typedef(uint32_t *pos, ArrayToken *toks, const char *source) {
     Token start = toks->data[*pos];
 
     *pos += 1;
@@ -105,7 +100,7 @@ CharRange consume_typedef(uint32_t *pos, Arena *arena, ArrayToken *toks, const c
     };
 }
 
-CharRange consume_func(uint32_t *pos, Arena *arena, ArrayToken *toks, const char *source) {
+CharRange consume_func(uint32_t *pos, ArrayToken *toks, const char *source) {
     Token start = toks->data[*pos];
 
     while (*pos < toks->len && toks->data[*pos].type != TT_L_PAREN) {
@@ -137,12 +132,11 @@ CharRange consume_func(uint32_t *pos, Arena *arena, ArrayToken *toks, const char
 CharRange consume_func_or_global(
         uint32_t *pos, 
         bool is_function, 
-        Arena *arena, 
         ArrayToken *toks, 
         const char *source
 ) {
     if (is_function) {
-        return consume_func(pos, arena, toks, source);
+        return consume_func(pos, toks, source);
     }
 
     Token start = toks->data[*pos];
@@ -160,47 +154,43 @@ CharRange consume_func_or_global(
     };
 }
 
-void parse_c_file(Arena *arena, Arena scratch, char *path) {
+FileContent parse_c_file(Arena *arena, Arena scratch, char *path) {
     uint32_t len    = 0;
     uint32_t pos    = 0;
     const char *source = read_file(scratch, path, &len);
+
     ArrayToken toks = tokenize(arena, path, source, len);
-    printf("%d\n", toks.len);
+    FileContent content = {0};
 
     while (toks.data[pos].type != R_EOF) {
         TokenType type = toks.data[pos].type;
-        printf("%d\n", type);
 
-        if          (type == C_DEFINE || type == C_PRAGMA || type == C_INCLUDE) {
-            LineRange l_range = consume_define_pragma_and_include(&pos, arena, &toks, source);
+        if          (type == C_DEFINE) {
+            *push(&content.defines, arena) = consume_define_pragma_and_include(&pos, &toks, source);
+        } else if   (type == C_PRAGMA) {
+            *push(&content.pragmas, arena) = consume_define_pragma_and_include(&pos, &toks, source);
+        } else if   (type == C_INCLUDE) {
+            *push(&content.includes, arena) = consume_define_pragma_and_include(&pos, &toks, source);
         } else if   (type == T_TYPEDEF) {
-            CharRange c_range = consume_typedef(&pos, arena, &toks, source);
+            CharRange c_range = consume_typedef(&pos, &toks, source);
             if (c_range.start.beg == 0 && c_range.end_char.beg == 0) continue;
 
-            printf("TYPEDEF\n");
-            for (uint32_t i = c_range.start.beg; i < c_range.end_char.beg; i++) {
-                printf("%c", source[i]);
-            }
-            printf("\n");
-
-        } else if   (type == T_STRUCT || type == T_ENUM) {
-            CharRange c_range = consume_struct_or_enum(&pos, arena, &toks, source);
-
-            printf("%s\n", type == T_STRUCT ? "STRUCT" : "ENUM");
-            for (uint32_t i = c_range.start.beg; i < c_range.end_char.beg; i++) {
-                printf("%c", source[i]);
-            }
-            printf("\n");
+            *push(&content.typedefs, arena) = c_range;
+        } else if   (type == T_ENUM) {
+            *push(&content.enums, arena) = consume_struct_or_enum(&pos, &toks, source);
+        } else if   (type == T_STRUCT) {
+            *push(&content.structs, arena) = consume_struct_or_enum(&pos, &toks, source);
         } else if   (type == T_IDENT) {
             bool is_function = is_func(pos, &toks);
-            CharRange c_range = consume_func_or_global(&pos, is_function, arena, &toks, source);
+            CharRange c_range = consume_func_or_global(&pos, is_function, &toks, source);
 
-            printf("%s\n", is_function ? "FUNC" : "GLOB");
-            for (uint32_t i = c_range.start.beg; i < c_range.end_char.beg; i++) {
-                printf("%c", source[i]);
+            if (is_function) {
+                *push(&content.functions, arena) = c_range;
+            } else {
+                *push(&content.globals, arena) = c_range;
             }
-            printf("\n");
-
         }
     }
+
+    return content;
 }

@@ -9,7 +9,7 @@
 #include "parser.h"
 
 int main(int argc, char **argv) {
-    ptrdiff_t size = 1 << 30;
+    ptrdiff_t size = (ptrdiff_t)2 * 1024 * 1024 * 1024;
     ptrdiff_t ssize = 2 * 1024 * 1024;
 
     Arena perm, scratch = {0};
@@ -20,7 +20,9 @@ int main(int argc, char **argv) {
     scratch.end = scratch.beg + ssize; 
 
     for (int i = 1; i < argc; i++) {
-        parse_c_file(&perm, scratch, argv[i]);
+        FileContent content = parse_c_file(&perm, scratch, argv[i]);
+
+        printf("includes=%d\ndefines=%d\nfuncs=%d\n", content.includes.len, content.defines.len, content.functions.len);
     }
 
     return 0;

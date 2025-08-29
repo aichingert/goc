@@ -14,6 +14,31 @@ typedef struct CharRange {
     Token end_char;
 } CharRange;
 
-void parse_c_file(Arena *arena, Arena scratch, char *path);
+typedef struct ArrayLineRange {
+    LineRange *data;
+    ptrdiff_t len;
+    ptrdiff_t cap;
+} ArrayLineRange;
+
+typedef struct ArrayCharRange {
+    CharRange *data;
+    ptrdiff_t len;
+    ptrdiff_t cap;
+} ArrayCharRange;
+
+// TODO: parse ifdefs
+typedef struct FileContent {
+    ArrayLineRange pragmas;
+    ArrayLineRange defines;
+    ArrayLineRange includes;
+
+    ArrayCharRange enums;
+    ArrayCharRange structs;
+    ArrayCharRange globals;
+    ArrayCharRange typedefs;
+    ArrayCharRange functions;
+} FileContent;
+
+FileContent parse_c_file(Arena *arena, Arena scratch, char *path);
 
 #endif /* PARSER_H */
