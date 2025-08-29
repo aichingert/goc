@@ -190,6 +190,8 @@ ArrayToken tokenize(
             *push(&tokens, arena) = consume_tt(&pos, line, TT_R_BRACKET);
         } else if   (source[pos] == '\\') {
             *push(&tokens, arena) = consume_tt(&pos, line, TT_BACKSLASH);
+        } else if   (source[pos] == ',') {
+            *push(&tokens, arena) = consume_tt(&pos, line, TT_COMMA);
         } else if   (source[pos] == ';') {
             *push(&tokens, arena) = consume_tt(&pos, line, TT_SEMICOLON);
         } else if   (source[pos] == '=') {
