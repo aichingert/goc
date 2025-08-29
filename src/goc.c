@@ -10,7 +10,6 @@
 
 int main(int argc, char **argv) {
     ptrdiff_t size = 1 << 30;
-    printf("%d\n", size);
     ptrdiff_t ssize = 2 * 1024 * 1024;
 
     Arena perm, scratch = {0};
@@ -20,12 +19,9 @@ int main(int argc, char **argv) {
     scratch.beg = alloc(&perm, char, ssize); 
     scratch.end = scratch.beg + ssize; 
 
-    ArrayCopy defs = {0};
-
     for (int i = 1; i < argc; i++) {
-        parse_c_file(&perm, scratch, argv[i], &defs);
+        parse_c_file(&perm, scratch, argv[i]);
     }
 
-    printf("%lu\n", defs.len);
     return 0;
 }

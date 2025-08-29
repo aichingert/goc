@@ -1,5 +1,13 @@
 #include <stdio.h>
 
+#define CONST 10
+
+#define MAX(a, b) (a) > (b) \
+    ? \
+    (a) \
+    : \
+    (b) \
+
 // ashdlkl */
 
 typedef struct String {
@@ -26,5 +34,4 @@ int main(void) {
     VALUES a = D;
     return 0;
 
-} =====
-=
+}

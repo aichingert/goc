@@ -24,13 +24,15 @@ typedef enum TokenType {
     TT_R_BRACKET= 14,
     TT_COMMA    = 15,
     TT_SEMICOLON= 16,
+    TT_BACKSLASH= 17,
 
-    R_EOF       = 17,
-    R_IGNORE    = 18,
+    R_EOF       = 30,
+    R_IGNORE    = 31,
 } TokenType;
 
 typedef struct Token {
     uint32_t    beg;
+    uint32_t    line;
     TokenType   type;
 } Token;
 

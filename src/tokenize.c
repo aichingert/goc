@@ -58,9 +58,10 @@ void consume_char_literal(uint32_t *pos, uint32_t len, const char *source) {
     assert(*pos - 1 < len && source[*pos - 1] == '\'' && "ERROR: character literal does not end with -> `'`!");
 }
 
-Token consume_identifier(uint32_t *pos, uint32_t len, const char *source) {
+Token consume_identifier(uint32_t *pos, uint32_t line, uint32_t len, const char *source) {
     Token tok = {
         .beg  = *pos,
+        .line = line,
         .type = T_IDENT,
     };
 
@@ -90,6 +91,7 @@ Token consume_compiler_instruction(
 ) {
     Token tok = {
         .beg = *pos,
+        .line = line,
         .type = C_INCLUDE,
     };
     *pos += 1;
@@ -114,9 +116,10 @@ Token consume_compiler_instruction(
     return tok;
 }
 
-Token consume_tt(uint32_t *pos, TokenType type) {
+Token consume_tt(uint32_t *pos, uint32_t line, TokenType type) {
     Token tok = {
         .beg = *pos,
+        .line = line,
         .type = type,
     };
     *pos += 1;
@@ -124,9 +127,18 @@ Token consume_tt(uint32_t *pos, TokenType type) {
     return tok;
 }
 
-Token consume_o(uint32_t *pos, uint32_t len, const char *source, TokenType type, char nxt, TokenType other) {
+Token consume_o(
+        uint32_t *pos, 
+        uint32_t line, 
+        uint32_t len, 
+        const char *source, 
+        TokenType type, 
+        char nxt, 
+        TokenType other
+) {
     Token tok = {
         .beg = *pos,
+        .line = line,
         .type = type,
     };
 
@@ -153,7 +165,7 @@ ArrayToken tokenize(
 
     while (pos < len) {
         if          (is_ident_start(source[pos])) {
-            *push(&tokens, arena) = consume_identifier(&pos, len, source);
+            *push(&tokens, arena) = consume_identifier(&pos, line, len, source);
         } else if   (source[pos] == '#') {
             *push(&tokens, arena) = consume_compiler_instruction(&pos, line, len, source, path);
         } else if   (is_line_comment(pos, len, source)) {
@@ -165,19 +177,23 @@ ArrayToken tokenize(
         } else if   (source[pos] == '"') {
             consume_string_literal(&pos, &line, len, source);
         } else if   (source[pos] == '(') {
-            *push(&tokens, arena) = consume_tt(&pos, TT_L_PAREN);
+            *push(&tokens, arena) = consume_tt(&pos, line, TT_L_PAREN);
         } else if   (source[pos] == ')') {
-            *push(&tokens, arena) = consume_tt(&pos, TT_R_PAREN);
+            *push(&tokens, arena) = consume_tt(&pos, line, TT_R_PAREN);
         } else if   (source[pos] == '{') {
-            *push(&tokens, arena) = consume_tt(&pos, TT_L_BRACE);
+            *push(&tokens, arena) = consume_tt(&pos, line, TT_L_BRACE);
         } else if   (source[pos] == '}') {
-            *push(&tokens, arena) = consume_tt(&pos, TT_R_BRACE);
+            *push(&tokens, arena) = consume_tt(&pos, line, TT_R_BRACE);
         } else if   (source[pos] == '[') {
-            *push(&tokens, arena) = consume_tt(&pos, TT_L_BRACKET);
+            *push(&tokens, arena) = consume_tt(&pos, line, TT_L_BRACKET);
         } else if   (source[pos] == ']') {
-            *push(&tokens, arena) = consume_tt(&pos, TT_R_BRACKET);
+            *push(&tokens, arena) = consume_tt(&pos, line, TT_R_BRACKET);
+        } else if   (source[pos] == '\\') {
+            *push(&tokens, arena) = consume_tt(&pos, line, TT_BACKSLASH);
+        } else if   (source[pos] == ';') {
+            *push(&tokens, arena) = consume_tt(&pos, line, TT_SEMICOLON);
         } else if   (source[pos] == '=') {
-            *push(&tokens, arena) = consume_o(&pos, len, source, O_EQ, '=', R_IGNORE);
+            *push(&tokens, arena) = consume_o(&pos, line, len, source, O_EQ, '=', R_IGNORE);
         } else if   (source[pos] == '\n') {
             pos += 1;
             line += 1;

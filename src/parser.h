@@ -2,31 +2,18 @@
 #define PARSER_H
 
 #include "arena.h"
+#include "tokenize.h"
 
-typedef struct String {
-    char    *val;
-    size_t  len;
-} String;
+typedef struct LineRange {
+    Token start;
+    uint32_t end_line;
+} LineRange;
 
-typedef struct TypedCopy {
-    String ident;
-    String value;
-} TypedCopy;
+typedef struct CharRange {
+    Token start;
+    Token end_char;
+} CharRange;
 
-typedef struct TypedFunc {
-    String ret_type;
-    String ident;
-
-    TypedCopy  *copies;
-    long long   len;
-} TypedFunc;
-
-typedef struct ArrayCopy {
-    TypedCopy *data;
-    ptrdiff_t len;
-    ptrdiff_t cap;
-} ArrayCopy;
-
-void parse_c_file(Arena *arena, Arena scratch, char *path, ArrayCopy *copies);
+void parse_c_file(Arena *arena, Arena scratch, char *path);
 
 #endif /* PARSER_H */
